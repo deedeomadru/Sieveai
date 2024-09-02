@@ -26,7 +26,7 @@ export const generateToken = (req, res) => {
 const OAuthSuccessPage = `
 <html>
   <head>
-    <title>Sieve.ai</title>
+    <title>NaanFahad.ai</title>
   </head>
   <body>
     <p>Successfully Authorized!</p>

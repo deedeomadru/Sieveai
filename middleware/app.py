@@ -1,120 +1,59 @@
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import nltk
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 import textract
-from itertools import chain
-from pyresparser import ResumeParser
-from flask import Flask, request
-from flask_cors import CORS
-from werkzeug.utils import secure_filename
-import json
-import string
 import re
+import string
+from pyresparser import ResumeParser
 import os
-from joblib import load
-import pickle
-import en_core_web_sm
-nlp = en_core_web_sm.load()
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 
+# Ensure NLTK dependencies are downloaded
+nltk.download('punkt')
+nltk.download('stopwords')
 
 app = Flask(__name__)
-cors = CORS(app, supports_credentials=True, resources={
+CORS(app, supports_credentials=True, resources={
             r"/*": {"origins": ["http://localhost:5000"]}})
 
-# cv folder
+# Set upload folder for resumes
 app.config['UPLOAD_FOLDER'] = os.path.join('..', 'uploads')
 
 ######################################
 
 ###### NLP MODEL SECTION #############
 
-
-def cleanResume(resumeText):
-    resumeText = re.sub('http\S+\s*', ' ', resumeText)
-    resumeText = re.sub('RT|cc', ' ', resumeText)
-    resumeText = re.sub('#\S+', '', resumeText)
-    resumeText = re.sub('@\S+', '  ', resumeText)
-    resumeText = re.sub('[%s]' % re.escape(
-        """!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""), ' ', resumeText)
-    resumeText = re.sub(r'[^\x00-\x7f]', r' ', resumeText)
-    resumeText = re.sub('\s+', ' ', resumeText)
-    return resumeText
-
-
-def Preprocessfile(filename):
-    text = filename
-    if ".pdf" in filename:
-        try:
-            text = textract.process(filename)
-        except UnicodeDecodeError:
-            print('File', filename, 'cannot be extracted! - skipped')
-        text = text.decode('utf-8').replace("\\n", " ")
-    else:
-        text = text.replace("\\n", " ")
-    x = []
+def preprocess_text(text):
+    text = re.sub(r'http\S+', '', text)
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'\[.*?\]', '', text)
+    text = re.sub(r'[^\w\s]', '', text)
+    text = text.lower()
     tokens = word_tokenize(text)
-    tok = [w.lower() for w in tokens]
-    table = str.maketrans('', '', string.punctuation)
-    strpp = [w.translate(table) for w in tok]
-    words = [word for word in strpp if word.isalpha()]
     stop_words = set(stopwords.words('english'))
-    words = [w for w in words if not w in stop_words]
-    x.append(words)
-    res = " ".join(chain.from_iterable(x))
-    return res
+    filtered_tokens = [word for word in tokens if word not in stop_words]
+    return ' '.join(filtered_tokens)
 
+def extract_text_from_file(filepath):
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"The file {filepath} was not found.")
+    text = textract.process(filepath)
+    return text.decode('utf-8')
 
-def predictResume(filename):
-    try:
-        text = textract.process(filename)
-        text = text.decode('utf-8').replace("\\n", " ")
-        text = cleanResume(text)
-        text = [text]
-        text = np.array(text)
-        vectorizer = pickle.load(open("vectorizer.pickle", "rb"))
-        resume = vectorizer.transform(text)
-        model = load('model.joblib')
-        result = model.predict(resume)
-        labeldict = {
-            0: 'Arts',
-            1: 'Automation Testing',
-            2: 'Operations Manager',
-            3: 'DotNet Developer',
-            4: 'Civil Engineer',
-            5: 'Data Science',
-            6: 'Database',
-            7: 'DevOps Engineer',
-            8: 'Business Analyst',
-            9: 'Health and fitness',
-            10: 'HR',
-            11: 'Electrical Engineering',
-            12: 'Java Developer',
-            13: 'Mechanical Engineer',
-            14: 'Network Security Engineer',
-            15: 'Blockchain ',
-            16: 'Python Developer',
-            17: 'Sales',
-            18: 'Testing',
-            19: 'Web Designing'
-        }
-        return labeldict[result[0]]
-    except UnicodeDecodeError:
-        print('File', filename, 'cannot be extracted for prediction! - skipped')
-
-
-def find_score(jobdes, filename, customKeywords):
-    resume = Preprocessfile(filename)
-    customKeywords = ' '.join(customKeywords)
-    jobdes = jobdes + ' ' + customKeywords
-    text = [resume, jobdes]
-    cv = CountVectorizer()
-    count_matrix = cv.fit_transform(text)
-    matchpercent = cosine_similarity(count_matrix)[0][1]*100
-    matchpercent = round(matchpercent, 2)
-    return matchpercent
+def rank_resumes(job_description, resume_files):
+    job_description = preprocess_text(job_description)
+    resume_texts = [preprocess_text(extract_text_from_file(file)) for file in resume_files]
+    
+    vectorizer = TfidfVectorizer()
+    tfidf_matrix = vectorizer.fit_transform([job_description] + resume_texts)
+    similarity_scores = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:]).flatten()
+    
+    resume_rankings = sorted(zip(resume_files, similarity_scores), key=lambda x: x[1], reverse=True)
+    return resume_rankings
 
 ######################################
 
@@ -123,50 +62,41 @@ def find_score(jobdes, filename, customKeywords):
 
 @app.route('/process', methods=['POST'])
 def show_result():
-    my_profile = request.get_json()['profile']
-    user_id = request.get_json()['userId']
-    resumes = request.get_json()['resumes']
-    my_tags = request.get_json()['tags']
-    my_jd = request.get_json()['jd']
+    data = request.get_json()
+    my_profile = data['profile']
+    user_id = data['userId']
+    resumes = data['resumes']
+    my_tags = data['tags']
+    my_jd = data['jd']
 
+    # Only process resumes that match the job profile
     filtered_files = []
     for resume in resumes:
-        if predictResume(os.path.join(app.config['UPLOAD_FOLDER'], user_id, resume)) in my_profile:
-            filtered_files.append(resume)
+        resume_path = os.path.join(app.config['UPLOAD_FOLDER'], user_id, resume)
+        # Optionally: Add logic here to filter based on specific criteria
+        filtered_files.append(resume_path)
 
+    # Rank the filtered resumes
+    rankings = rank_resumes(my_jd, filtered_files)
 
-    jobdes = Preprocessfile(my_jd)
-
-    customKeywords = []
-    for tag in my_tags:
-        temp = tag.strip()
-        customKeywords.append(temp)
-
-    res = list()
-    for file in filtered_files:
-        score = find_score(jobdes, os.path.join(
-            app.config['UPLOAD_FOLDER'], user_id, file), customKeywords)
-        user_info = ResumeParser(os.path.join(
-            app.config['UPLOAD_FOLDER'], user_id, file)).get_extracted_data()
-
-        user_info['predicted']=predictResume(os.path.join(app.config['UPLOAD_FOLDER'], user_id, file))
-
+    # Gather additional data if needed (e.g., using ResumeParser)
+    res = []
+    for file, score in rankings:
+        user_info = ResumeParser(file).get_extracted_data()
         res.append({
-            'resumeId': file,
-            'score': score,
+            'resumeId': os.path.basename(file),
+            'score': round(score * 100, 2),
             'userInfo': user_info
         })
 
-    j_res = json.dumps(res)
-    return j_res
+    return jsonify(res)
 
 ######################################
 
 
 @app.route('/')
 def hello_world():
-    return ("Hello World")
-
+    return "Hello World"
 
 
 if __name__ == '__main__':

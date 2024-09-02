@@ -16,7 +16,7 @@ const Login: React.FC = () => {
             <TabPane tab="Login" key="1">
               <LoginForm />
             </TabPane>
-            <TabPane tab="Singup" key="2">
+            <TabPane tab="Signup" key="2">
               <SignupForm />
             </TabPane>
           </Tabs>

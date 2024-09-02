@@ -59,9 +59,13 @@ export const getJobById = async (req, res) => {
     return res.status(httpStatus.OK).json({ data: job });
   } catch (err) {
     console.log(err);
+    // return res
+    //   .status(httpStatus.INTERNAL_SERVER_ERROR)
+    //   .json({ error: 'something went wrong getting job' });
     return res
-      .status(httpStatus.INTERNAL_SERVER_ERROR)
-      .json({ error: 'something went wrong getting job' });
+  .status(httpStatus.INTERNAL_SERVER_ERROR)
+  .json({ error: `Error fetching job: ${err.message}` });
+
   }
 };
 
