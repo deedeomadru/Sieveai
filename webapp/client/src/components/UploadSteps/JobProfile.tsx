@@ -10,28 +10,7 @@ const { CheckableTag } = Tag;
 
 const { Title } = Typography;
 
-const tagsData: string[] = [
-  'Arts',
-  'Automation Testing',
-  'Operations Manager',
-  'DotNet Developer',
-  'Civil Engineer',
-  'Data Science',
-  'Database',
-  'DevOps Engineer',
-  'Business Analyst',
-  'Health and fitness',
-  'HR',
-  'Electrical Engineering',
-  'Java Developer',
-  'Mechanical Engineer',
-  'Network Security Engineer',
-  'Blockchain ',
-  'Python Developer',
-  'Sales',
-  'Testing',
-  'Web Designing',
-];
+const tagsData: string[] = ["Software Engineer", "Data Scientist", "Product Manager", "Web Developer", "UX/UI Designer", "DevOps Engineer", "Machine Learning Engineer", "Systems Analyst", "Business Analyst", "Cloud Engineer", "Database Administrator", "Network Engineer", "Full Stack Developer", "Front-End Developer", "Back-End Developer", "Graphic Designer"]
 
 const JobProfileContainer = styled.div`
   .edit-tag {

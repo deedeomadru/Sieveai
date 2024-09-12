@@ -36,7 +36,7 @@ const CustomTags: React.FC = () => {
     const { inputValue } = state;
 
     if (inputValue && tags.indexOf(inputValue) === -1) {
-      const _tags = [...tags, inputValue];
+      const _tags = [...tags, ...inputValue.split(",")];
       dispatch(addTags(_tags));
     }
     setState(_prev => ({

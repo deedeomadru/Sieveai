@@ -90,18 +90,19 @@ const Leaderboard: React.FC = () => {
         }
       });
 
-      const { name, mobile_number: phone, email } = userInfo;
+      const { names, phone_numbers, emails } = userInfo;
       const resumeLink = `${SERVER_URL}/api/pdf/${userId}/${resumeId}`;
       return {
-        name,
-        email,
-        phone,
+        name: names?.[0],
+        email: emails?.[0],
+        phone: phone_numbers?.[0],
         score,
         _key: idx,
         resumeLink,
         data: { ...result },
       };
     });
+    console.log(resultsArray)
     setData(resultsArray);
   }, [results, jobId, userId]);
 

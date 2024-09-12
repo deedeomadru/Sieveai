@@ -11,7 +11,7 @@ const router = express.Router();
 
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
-    const dir = path.join(cwd, '..', 'uploads', req.user._id.toString());
+    const dir = path.join(cwd, '..', 'uploads', req.user._id.toString());    
     await fs.ensureDir(dir);
     cb(null, dir);
   },

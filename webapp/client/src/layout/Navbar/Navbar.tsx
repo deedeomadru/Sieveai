@@ -31,7 +31,7 @@ const Navbar: React.FC = () => {
     <NavbarWrapper>
       <div className="brand__info">
         <img src={Logo} alt="app logo" height="25px" />
-        Sieve.ai
+        deedefahad.ai
       </div>
       <div className="nav__links">
         <NavLink to="/" exact>
